@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Pontos por origem</h2>
+<table class="table">
+  <tr><th>Tipo</th><th>Total de pontos</th></tr>
+  {% for tipo, total in agregado.items() %}
+  <tr><td>{{ tipo }}</td><td>{{ total }}</td></tr>
+  {% endfor %}
+</table>
+<p class="text-muted small">
+  Débito por venda: pontos consumidos como entrada de compras.<br>
+  Crédito por pagamento: pontos devolvidos na baixa de parcelas.
+</p>
+{% endblock %}

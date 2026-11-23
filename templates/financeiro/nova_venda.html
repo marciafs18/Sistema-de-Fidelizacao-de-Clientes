@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Nova Venda</h2>
+
+{% if cliente_pre %}
+<div class="alert alert-success d-flex justify-content-between align-items-center">
+  <div>
+    <strong>Cliente identificado:</strong> {{ cliente_pre.nome }}
+    <span class="badge bg-dark ms-2" id="badge-saldo"
+          data-saldo="{{ cliente_pre.saldo_pontos }}">
+      {{ cliente_pre.saldo_pontos }} pts
+    </span>
+    {% if originada_qr %}<span class="badge bg-info ms-2">via QR</span>{% endif %}
+  </div>
+  <a href="{{ url_for('financeiro.nova_venda') }}" class="btn btn-sm btn-outline-secondary">Trocar cliente</a>
+</div>
+{% endif %}
+
+<div class="alert alert-warning">
+  <strong>Regra:</strong> 1 ponto = R$ 1,00. A venda exige pontos equivalentes ao valor total,
+  debitados como entrada. <strong>Não há exceção e não há devolução</strong> em cancelamentos,
+  estornos ou inadimplência.
+</div>
+
+<form method="POST" id="form-venda">
+  <input type="hidden" name="originada_qr" value="{{ '1' if originada_qr else '0' }}">
+
+  <div class="mb-3">
+    <label class="form-label">Cliente *</label>
+    <input type="text" id="busca-cliente" class="form-control mb-2"
+           placeholder="Buscar por nome, e-mail ou telefone...">
+    <select name="cliente_id" id="select-cliente" class="form-select" size="5" required>
+      {% for c in clientes %}
+      <option value="{{ c.id }}"
+              data-busca="{{ (c.nome ~ ' ' ~ c.email ~ ' ' ~ (c.telefone or ''))|lower }}"
+              data-saldo="{{ c.saldo_pontos }}"
+              {% if cliente_pre and cliente_pre.id==c.id %}selected{% endif %}>
+        {{ c.nome }} — {{ c.email }} — {{ c.saldo_pontos }} pts
+      </option>
+      {% endfor %}
+    </select>
+    <small class="text-muted">Digite para filtrar a lista acima.</small>
+  </div>
+
+  <div class="row">
+    <div class="col-md-4 mb-3">
+      <label class="form-label">Valor total (R$) *</label>
+      <input name="valor_total" id="valor_total" type="number" step="0.01" min="0.01"
+             class="form-control" required>
+    </div>
+    <div class="col-md-4 mb-3">
+      <label class="form-label">Número de parcelas *</label>
+      <input name="num_parcelas" id="num_parcelas" type="number" min="1" value="1"
+             class="form-control" required>
+    </div>
+    <div class="col-md-4 mb-3">
+      <label class="form-label">1º vencimento *</label>
+      <input name="primeiro_vencimento" id="primeiro_vencimento" type="date"
+             class="form-control" required>
+      <small id="aviso-vencimento" class="text-warning d-none">
+        Data no passado — parcela já nascerá vencida.
+      </small>
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Forma prevista (opcional, aplicada a todas as parcelas)</label>
+    <select name="forma_prevista" class="form-select">
+      <option value="">— Não informar —</option>
+      {% for f in formas %}<option value="{{ f }}">{{ rotulos[f] }}</option>{% endfor %}
+    </select>
+    <small class="text-muted">
+      A forma <strong>real</strong> de pagamento é registrada na baixa de cada parcela.
+    </small>
+  </div>
+
+  <div class="alert alert-info" id="resumo-parcelas">
+    Informe o valor total para ver o resumo.
+  </div>
+
+  <div class="alert d-none" id="indicador-saldo"></div>
+
+  <button type="submit" id="btn-criar" class="btn btn-success" disabled>Criar Venda</button>
+  <a href="{{ url_for('loja.painel') }}" class="btn btn-secondary">Cancelar</a>
+</form>
+
+<script>
+// ---- Filtro de clientes ----
+const busca = document.getElementById('busca-cliente');
+const select = document.getElementById('select-cliente');
+busca.addEventListener('input', () => {
+  const termo = busca.value.toLowerCase().trim();
+  for (const opt of select.options) {
+    const match = !termo || opt.dataset.busca.includes(termo);
+    opt.style.display = match ? '' : 'none';
+  }
+  atualizarTudo();
+});
+
+// ---- Elementos ----
+const valor = document.getElementById('valor_total');
+const nparc = document.getElementById('num_parcelas');
+const venc = document.getElementById('primeiro_vencimento');
+const resumo = document.getElementById('resumo-parcelas');
+const indicador = document.getElementById('indicador-saldo');
+const btnCriar = document.getElementById('btn-criar');
+const avisoVenc = document.getElementById('aviso-vencimento');
+
+function saldoSelecionado() {
+  const opt = select.options[select.selectedIndex];
+  return opt ? parseInt(opt.dataset.saldo || '0', 10) : 0;
+}
+
+function atualizarResumo() {
+  const v = parseFloat(valor.value) || 0;
+  const n = parseInt(nparc.value) || 1;
+  if (v > 0) {
+    const p = v / n;
+    resumo.textContent = `${n}x de R$ ${p.toFixed(2).replace('.', ',')} = R$ ${v.toFixed(2).replace('.', ',')}`;
+  } else {
+    resumo.textContent = 'Informe o valor total para ver o resumo.';
+  }
+}
+
+function atualizarIndicador() {
+  const v = parseFloat(valor.value) || 0;
+  const saldo = saldoSelecionado();
+  indicador.classList.remove('d-none', 'alert-success', 'alert-danger', 'alert-warning');
+  btnCriar.disabled = true;
+
+  if (v <= 0) {
+    indicador.classList.add('alert-warning');
+    indicador.textContent = 'Selecione o cliente e informe o valor total.';
+    return;
+  }
+
+  const exigido = Math.round(v);
+  if (saldo >= exigido) {
+    indicador.classList.add('alert-success');
+    indicador.textContent = `Saldo suficiente: ${saldo} pts (exige ${exigido} pts). `
+                          + `Restarão ${saldo - exigido} pts após a compra.`;
+    btnCriar.disabled = false;
+  } else {
+    const falta = exigido - saldo;
+    indicador.classList.add('alert-danger');
+    indicador.textContent = `Saldo insuficiente: cliente tem ${saldo} pts, `
+                          + `a venda exige ${exigido} pts. Faltam ${falta} pts. `
+                          + `Regra sem exceção.`;
+  }
+}
+
+function verificarVenc() {
+  if (!venc.value) { avisoVenc.classList.add('d-none'); return; }
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const d = new Date(venc.value + 'T00:00:00');
+  avisoVenc.classList.toggle('d-none', d >= hoje);
+}
+
+function atualizarTudo() {
+  atualizarResumo();
+  atualizarIndicador();
+}
+
+valor.addEventListener('input', atualizarTudo);
+nparc.addEventListener('input', atualizarTudo);
+select.addEventListener('change', atualizarTudo);
+venc.addEventListener('change', verificarVenc);
+
+atualizarTudo();
+</script>
+{% endblock %}

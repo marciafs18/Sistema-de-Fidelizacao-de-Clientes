@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Painel da Loja</h2>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <a href="{{ url_for('loja.ler_qrcode') }}" class="btn btn-primary btn-lg w-100 py-4">
+      📷 Escanear Cliente
+    </a>
+  </div>
+  <div class="col-md-6">
+    <a href="{{ url_for('financeiro.nova_venda') }}" class="btn btn-success btn-lg w-100 py-4">
+      ➕ Nova Venda
+    </a>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-4"><div class="card text-white bg-primary p-3"><h5>Vendas hoje</h5><h2>{{ kpis.vendas_hoje }}</h2></div></div>
+  <div class="col-md-4"><div class="card text-white bg-warning p-3"><h5>Vencem hoje</h5><h2>{{ kpis.parcelas_hoje }}</h2></div></div>
+  <div class="col-md-4"><div class="card text-white bg-danger p-3"><h5>Atrasadas</h5><h2>{{ kpis.parcelas_atrasadas }}</h2></div></div>
+</div>
+{% endblock %}

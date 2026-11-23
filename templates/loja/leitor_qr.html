@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Leitor de QR Code</h2>
+<div id="reader" style="max-width:400px;"></div>
+<div id="resultado" class="alert d-none mt-3"></div>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+let processando = false;
+const resultado = document.getElementById('resultado');
+async function onScanSuccess(token) {
+  if (processando) return;
+  processando = true;
+  resultado.className = 'alert alert-info mt-3';
+  resultado.textContent = 'Validando...';
+  try {
+    const resp = await fetch('/loja/api/qrcode/validar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({token: token})
+    });
+    const txt = await resp.text();
+    let data;
+    try { data = JSON.parse(txt); } catch(e) {
+      throw new Error('Resposta inválida: ' + txt.slice(0,200));
+    }
+    if (!resp.ok || !data.ok) throw new Error(data.erro || 'Erro');
+    resultado.className = 'alert alert-success mt-3';
+    resultado.textContent = 'Cliente: ' + data.cliente.nome + ' — redirecionando...';
+    setTimeout(() => {
+      window.location.href = '/financeiro/vendas/nova?cliente_id='
+        + data.cliente.id + '&originada_qr=1';
+    }, 800);
+  } catch (err) {
+    resultado.className = 'alert alert-danger mt-3';
+    resultado.textContent = 'Erro: ' + err.message;
+    processando = false;
+  }
+}
+const scanner = new Html5QrcodeScanner('reader', {fps: 10, qrbox: 250});
+scanner.render(onScanSuccess);
+</script>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Meu QR Code</h2>
+<p>Apresente este código na loja para ser identificado.</p>
+<div id="qrcode" style="margin: 20px auto; width: 250px;"></div>
+<button class="btn btn-outline-primary" onclick="location.reload()">Renovar QR</button>
+<p class="text-muted mt-2">Token expira em 5 minutos.</p>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script>
+new QRCode(document.getElementById('qrcode'), {
+  text: {{ token|tojson }},
+  width: 250, height: 250
+});
+</script>
+{% endblock %}

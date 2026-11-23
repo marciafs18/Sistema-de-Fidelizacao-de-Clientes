@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Olá, {{ cliente.nome }}!</h2>
+
+<div class="card border-success mb-3">
+  <div class="card-body">
+    <h5 class="card-title">Saldo de pontos</h5>
+    <p class="display-5 mb-1">{{ cliente.saldo_pontos }} pts</p>
+    <p class="text-muted mb-0">
+      1 ponto = R$ 1,00. Compras exigem pontos equivalentes ao valor total.<br>
+      <strong>Não há devolução de pontos</strong> em cancelamentos, estornos ou inadimplência.
+    </p>
+  </div>
+</div>
+
+<a href="{{ url_for('cli.qrcode') }}" class="btn btn-primary mb-3">Meu QR Code</a>
+
+<h4>Parcelas em aberto</h4>
+<table class="table">
+  <tr><th>Venda</th><th>Parcela</th><th>Venc.</th><th>Valor</th><th>Status</th></tr>
+  {% for p in parcelas %}
+  <tr>
+    <td>#{{ p.venda.id }}</td><td>{{ p.numero }}/{{ p.venda.num_parcelas }}</td>
+    <td>{{ p.vencimento.strftime('%d/%m/%Y') }}</td>
+    <td>R$ {{ '%.2f'|format(p.valor) }}</td>
+    <td>{% if p.vencimento < hoje %}Atrasada{% else %}Aberta{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+<h4>Extrato de pontos</h4>
+<form method="GET" class="mb-2">
+  <select name="tipo_mov" class="form-select w-auto d-inline-block" onchange="this.form.submit()">
+    <option value="">Todos</option>
+    {% for t in tipos %}<option value="{{ t }}" {% if filtro_tipo==t %}selected{% endif %}>{{ t }}</option>{% endfor %}
+  </select>
+</form>
+<table class="table">
+  <tr><th>Data</th><th>Tipo</th><th>Pontos</th><th>Descrição</th></tr>
+  {% for m in movs %}
+  <tr>
+    <td>{{ m.data.strftime('%d/%m/%Y %H:%M') }}</td>
+    <td>
+      {% if m.tipo == 'debito_venda' %}
+        <span class="badge bg-warning text-dark">Débito por venda</span>
+      {% elif m.tipo == 'credito_pagamento' %}
+        <span class="badge bg-success">Crédito por pagamento</span>
+      {% elif m.tipo == 'debito_resgate' %}
+        <span class="badge bg-secondary">Débito por resgate</span>
+      {% elif m.tipo == 'concessao_administrativa' %}
+        <span class="badge bg-info text-dark">Concessão administrativa</span>
+      {% elif m.tipo == 'ajuste_administrativo' %}
+        <span class="badge bg-dark">Ajuste administrativo</span>
+      {% elif m.tipo == 'estorno_resgate' %}
+        <span class="badge bg-primary">Estorno de resgate</span>
+      {% else %}
+        {{ m.tipo }}
+      {% endif %}
+    </td>
+    <td>{{ m.pontos }}</td>
+    <td>{{ m.descricao }} {% if m.observacao %}({{ m.observacao }}){% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}

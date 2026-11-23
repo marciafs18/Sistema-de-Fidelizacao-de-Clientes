@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Parcelas</h2>
+
+<!-- Filtros -->
+<form method="GET" class="row g-2 mb-3 align-items-end">
+  <div class="col-md-2">
+    <label class="form-label small">Status</label>
+    <select name="status" class="form-select">
+      <option value="">Todos</option>
+      <option value="aberta"   {% if filtros.status=='aberta'   %}selected{% endif %}>Aberta</option>
+      <option value="atrasada" {% if filtros.status=='atrasada' %}selected{% endif %}>Atrasada</option>
+      <option value="paga"     {% if filtros.status=='paga'     %}selected{% endif %}>Paga</option>
+    </select>
+  </div>
+  <div class="col-md-2">
+    <label class="form-label small">Venc. de</label>
+    <input type="date" name="venc_de" value="{{ filtros.venc_de }}" class="form-control">
+  </div>
+  <div class="col-md-2">
+    <label class="form-label small">Venc. até</label>
+    <input type="date" name="venc_ate" value="{{ filtros.venc_ate }}" class="form-control">
+  </div>
+  <div class="col-md-2">
+    <label class="form-label small">Forma realizada</label>
+    <select name="forma" class="form-select">
+      <option value="">Todas</option>
+      {% for f in formas %}
+      <option value="{{ f }}" {% if filtros.forma==f %}selected{% endif %}>{{ rotulos[f] }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <label class="form-label small">Cliente</label>
+    <input name="cliente_q" value="{{ filtros.cliente_q }}" class="form-control" placeholder="Nome do cliente">
+  </div>
+  <div class="col-md-2 d-flex gap-2">
+    <button class="btn btn-primary w-100">Filtrar</button>
+    <a href="{{ url_for('financeiro.parcelas') }}" class="btn btn-outline-secondary w-100">Limpar</a>
+  </div>
+</form>
+
+<!-- Chips de filtros ativos -->
+{% set tem_filtro = filtros.status or filtros.venc_de or filtros.venc_ate or filtros.forma or filtros.cliente_q %}
+{% if tem_filtro %}
+<div class="mb-3">
+  <span class="text-muted small me-2">Filtros ativos:</span>
+  {% if filtros.status %}<span class="badge bg-secondary me-1">Status: {{ filtros.status }}</span>{% endif %}
+  {% if filtros.venc_de %}<span class="badge bg-secondary me-1">De: {{ filtros.venc_de }}</span>{% endif %}
+  {% if filtros.venc_ate %}<span class="badge bg-secondary me-1">Até: {{ filtros.venc_ate }}</span>{% endif %}
+  {% if filtros.forma %}<span class="badge bg-secondary me-1">Forma: {{ rotulos.get(filtros.forma, filtros.forma) }}</span>{% endif %}
+  {% if filtros.cliente_q %}<span class="badge bg-secondary me-1">Cliente: {{ filtros.cliente_q }}</span>{% endif %}
+</div>
+{% endif %}
+
+<!-- Contagem -->
+<p class="text-muted small">
+  {{ parcelas|length }} parcela{{ parcelas|length != 1 and 's' or '' }} encontrada{{ parcelas|length != 1 and 's' or '' }}.
+</p>
+
+<!-- Tabela -->
+<div class="table-responsive">
+  <table class="table table-sm table-hover align-middle">
+    <thead class="table-dark">
+      <tr>
+        <th>Cliente</th>
+        <th>Venda</th>
+        <th>Origem</th>
+        <th>Parcela</th>
+        <th>Vencimento</th>
+        <th>Valor</th>
+        <th>Forma prevista</th>
+        <th>Forma realizada</th>
+        <th>Status</th>
+        <th>Ação</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in parcelas %}
+      {% set atrasada = (not p.pago) and (p.vencimento < hoje) %}
+      <tr class="{% if atrasada %}table-danger{% elif p.pago %}table-success{% endif %}">
+        <td>
+          <a href="{{ url_for('crm.ficha_cliente', cid=p.venda.cliente.id) }}">
+            {{ p.venda.cliente.nome }}
+          </a>
+        </td>
+        <td>
+          <a href="{{ url_for('financeiro.parcelas', cliente_q=p.venda.cliente.nome) }}">
+            #{{ p.venda.id }}
+          </a>
+        </td>
+        <td>
+          {% if p.venda.originada_por_qr %}
+            <span class="badge bg-info text-dark">QR</span>
+          {% else %}
+            <span class="badge bg-light text-dark">Manual</span>
+          {% endif %}
+        </td>
+        <td>{{ p.numero }}/{{ p.venda.num_parcelas }}</td>
+        <td>{{ p.vencimento.strftime('%d/%m/%Y') }}</td>
+        <td>R$ {{ '%.2f'|format(p.valor) }}</td>
+        <td>
+          {% if p.forma_prevista %}
+            {{ rotulos.get(p.forma_prevista, p.forma_prevista) }}
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if p.forma_realizada %}
+            <span class="badge bg-primary">{{ rotulos.get(p.forma_realizada, p.forma_realizada) }}</span>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if p.pago %}
+            <span class="badge bg-success">Paga</span>
+            {% if p.data_pagamento %}
+            <br><small class="text-muted">{{ p.data_pagamento.strftime('%d/%m/%Y %H:%M') }}</small>
+            {% endif %}
+          {% elif atrasada %}
+            <span class="badge bg-danger">Atrasada</span>
+            <br><small class="text-muted">
+              {{ (hoje - p.vencimento).days }} dia{{ (hoje - p.vencimento).days != 1 and 's' or '' }} em atraso
+            </small>
+          {% else %}
+            <span class="badge bg-warning text-dark">Aberta</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if not p.pago %}
+          <form method="POST"
+                action="{{ url_for('financeiro.pagar_parcela', pid=p.id) }}"
+                class="d-flex gap-1"
+                onsubmit="return confirm('Confirmar baixa desta parcela?');">
+            <select name="forma_realizada" class="form-select form-select-sm" required>
+              <option value="">Forma...</option>
+              {% for f in formas %}
+              <option value="{{ f }}">{{ rotulos[f] }}</option>
+              {% endfor %}
+            </select>
+            <button class="btn btn-sm btn-success" title="Baixar parcela">Pagar</button>
+          </form>
+          {% else %}
+          <small class="text-muted">—</small>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="10" class="text-center py-4 text-muted">
+          Nenhuma parcela encontrada com os filtros atuais.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

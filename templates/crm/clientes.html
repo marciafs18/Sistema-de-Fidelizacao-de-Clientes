@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Clientes</h2>
+{% if current_user.perfil == 'ADM' %}
+<a href="{{ url_for('crm.novo_cliente') }}" class="btn btn-primary mb-3">Novo Cliente</a>
+{% endif %}
+
+<form method="GET" class="row g-2 mb-3">
+  <div class="col-md-4"><input name="q" value="{{ filtros.q }}" class="form-control" placeholder="Nome/e-mail/telefone"></div>
+  <div class="col-md-2">
+    <select name="status" class="form-control">
+      <option value="">Status</option>
+      <option value="ativo" {% if filtros.status=='ativo' %}selected{% endif %}>Ativo</option>
+      <option value="inativo" {% if filtros.status=='inativo' %}selected{% endif %}>Inativo</option>
+    </select>
+  </div>
+  {% if current_user.perfil == 'ADM' %}
+  <div class="col-md-2"><input name="pontos_min" type="number" value="{{ filtros.pontos_min or '' }}" class="form-control" placeholder="Pontos mín"></div>
+  <div class="col-md-2"><input name="pontos_max" type="number" value="{{ filtros.pontos_max or '' }}" class="form-control" placeholder="Pontos máx"></div>
+  {% endif %}
+  <div class="col-md-2"><button class="btn btn-outline-primary w-100">Filtrar</button></div>
+</form>
+
+<table class="table">
+  <tr><th>ID</th><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Pontos</th><th>Ações</th></tr>
+  {% for c in clientes %}
+  <tr>
+    <td>{{ c.id }}</td><td><a href="{{ url_for('crm.ficha_cliente', cid=c.id) }}">{{ c.nome }}</a></td><td>{{ c.email }}</td><td>{{ c.telefone }}</td>
+    <td>{{ c.saldo_pontos }}</td>
+    <td>
+      <a href="{{ url_for('financeiro.nova_venda', cliente_id=c.id) }}" class="btn btn-sm btn-success">Nova Venda</a>
+      {% if current_user.perfil in ('ADM','FUNC') %}
+        <a href="{{ url_for('fidelidade.novo_resgate', cid=c.id) }}" class="btn btn-sm btn-info">Resgatar</a>
+      {% endif %}
+      {% if current_user.perfil == 'ADM' %}
+        <a href="{{ url_for('fidelidade.ajustar_pontos', cid=c.id) }}" class="btn btn-sm btn-warning">Ajustar pts</a>
+        <a href="{{ url_for('crm.editar_cliente', cid=c.id) }}" class="btn btn-sm btn-outline-secondary">Editar</a>
+      {% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}

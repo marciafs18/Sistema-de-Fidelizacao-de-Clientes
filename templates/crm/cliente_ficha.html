@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>{{ cliente.nome }} <small class="text-muted">(ID {{ cliente.id }})</small></h2>
+  <div>
+    <a href="{{ url_for('financeiro.nova_venda', cliente_id=cliente.id) }}" class="btn btn-success">Nova Venda</a>
+    {% if current_user.perfil in ('ADM','FUNC') %}
+      <a href="{{ url_for('fidelidade.novo_resgate', cid=cliente.id) }}" class="btn btn-info">Resgatar</a>
+    {% endif %}
+    {% if current_user.perfil == 'ADM' %}
+      <a href="{{ url_for('fidelidade.ajustar_pontos', cid=cliente.id) }}" class="btn btn-warning">Ajustar Pontos</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4"><div class="card p-3"><strong>E-mail</strong><br>{{ cliente.email }}</div></div>
+  <div class="col-md-4"><div class="card p-3"><strong>Telefone</strong><br>{{ cliente.telefone or '-' }}</div></div>
+  <div class="col-md-4"><div class="card p-3 bg-success text-white"><strong>Saldo de pontos</strong><br><span class="fs-3">{{ cliente.saldo_pontos }}</span></div></div>
+</div>
+
+<h4>Vendas</h4>
+<table class="table table-sm">
+  <tr><th>#</th><th>Valor</th><th>Parcelas</th><th>Data</th><th>Origem</th><th></th></tr>
+  {% for v in cliente.vendas %}
+  <tr>
+    <td>{{ v.id }}</td>
+    <td>R$ {{ '%.2f'|format(v.valor_total) }}</td>
+    <td>{{ v.num_parcelas }}x</td>
+    <td>{{ v.data_venda.strftime('%d/%m/%Y %H:%M') }}</td>
+    <td>{{ 'QR' if v.originada_por_qr else 'Manual' }}</td>
+    <td><a href="{{ url_for('financeiro.parcelas', cliente_q=cliente.nome) }}" class="btn btn-sm btn-outline-primary">Ver parcelas</a></td>
+  </tr>
+  {% else %}
+  <tr><td colspan="6" class="text-center">Sem vendas.</td></tr>
+  {% endfor %}
+</table>
+
+<h4>Extrato de Pontos</h4>
+<table class="table table-sm">
+  <tr><th>Data</th><th>Tipo</th><th>Pontos</th><th>Descrição</th></tr>
+  {% for m in cliente.mov_pontos|sort(attribute='data', reverse=true) %}
+  <tr>
+    <td>{{ m.data.strftime('%d/%m/%Y %H:%M') }}</td>
+    <td>{{ m.tipo }}</td>
+    <td>{{ m.pontos }}</td>
+    <td>{{ m.descricao }} {% if m.observacao %}({{ m.observacao }}){% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}

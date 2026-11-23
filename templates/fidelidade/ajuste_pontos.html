@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Ajustar Pontos — {{ cliente.nome }}</h2>
+
+<div class="alert alert-info">
+  <strong>Efeito na capacidade de compra:</strong> 1 ponto = R$ 1,00.
+  Conceder pontos <strong>habilita</strong> o cliente a comprar.
+  Reduzir pontos pode <strong>desabilitar</strong> o cliente de comprar.
+  Saldo atual: <strong>{{ cliente.saldo_pontos }} pts</strong>.
+</div>
+
+<form method="POST">
+  <div class="mb-3">
+    <label class="form-label">Delta (positivo concede, negativo subtrai)</label>
+    <input name="delta" type="number" class="form-control" required>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Observação (obrigatória)</label>
+    <textarea name="observacao" class="form-control" required></textarea>
+  </div>
+  <button class="btn btn-warning">Aplicar ajuste</button>
+</form>
+{% endblock %}
